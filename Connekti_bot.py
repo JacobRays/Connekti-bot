@@ -17,38 +17,33 @@ def send_welcome(message):
     bot.reply_to(message, "🤖 Welcome to the Lead Shop Bot!\nUse /buy to see available leads.")
 
 @bot.message_handler(commands=['buy'])
-def send_files(message):
-    if not LEAD_FILES:
-        bot.reply_to(message, "No files are available right now.")
-        return
-    
-    files = LEAD_FILES.split(",")
-    response = "📂 Available leads:\n"
-    for f in files:
-        response += f" - {f.strip()}\n"
-    response += f"\nTo buy, send payment to PayPal: {PAYPAL_EMAIL}"
-    bot.send_message(message.chat.id, response)
+def send_buy(message):
+    leads = LEAD_FILES.split(",")
+    reply = "📂 Available Leads:\n"
+    for idx, lead in enumerate(leads, start=1):
+        reply += f"{idx}. {lead.strip()}\n"
+    reply += f"\n💳 Pay via PayPal: {PAYPAL_EMAIL}\nOnce paid, your file will be sent automatically."
+    bot.reply_to(message, reply)
 
-# --- Flask routes ---
-@server.route(f"/{BOT_TOKEN}", methods=["POST"])
-def get_message():
-    json_str = request.get_data().decode("UTF-8")
+# --- Webhook route for Telegram ---
+@server.route(f"/{BOT_TOKEN}", methods=['POST'])
+def telegram_webhook():
+    json_str = request.stream.read().decode("UTF-8")
     update = telebot.types.Update.de_json(json_str)
     bot.process_new_updates([update])
-    return "!", 200
+    return "OK", 200
 
-@server.route("/", methods=["GET"])
+# --- Health check (optional) ---
+@server.route("/", methods=['GET'])
 def index():
     return "🤖 Connekti Bot is running!", 200
 
-# --- Setup webhook ---
 if __name__ == "__main__":
-    # Remove previous webhook (safety)
-    bot.remove_webhook()
+    # Important: tell Telegram where to send updates
+    if BASE_URL:
+        webhook_url = f"{BASE_URL}/{BOT_TOKEN}"
+        bot.remove_webhook()
+        bot.set_webhook(url=webhook_url)
 
-    # Set webhook to your Render BASE_URL
-    webhook_url = f"{BASE_URL}/{BOT_TOKEN}"
-    bot.set_webhook(url=webhook_url)
-
-    # Start Flask server (Render runs gunicorn normally)
-   
+    port = int(os.environ.get("PORT", 10000))
+    server.run(host="0.0.0.0", port=port)
