@@ -4,4 +4,4 @@ services:
     env: python
     plan: free
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "python Connekti_bot.py"
+    startCommand: "gunicorn Connekti_bot:server"
