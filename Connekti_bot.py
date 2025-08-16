@@ -18,7 +18,11 @@ def send_welcome(message):
 
 @bot.message_handler(commands=['buy'])
 def send_buy(message):
-    leads = LEAD_FILES.split(",")
+    leads = LEAD_FILES.split(",") if LEAD_FILES else []
+    if not leads:
+        bot.reply_to(message, "⚠️ No leads available right now.")
+        return
+    
     reply = "📂 Available Leads:\n"
     for idx, lead in enumerate(leads, start=1):
         reply += f"{idx}. {lead.strip()}\n"
@@ -28,22 +32,25 @@ def send_buy(message):
 # --- Webhook route for Telegram ---
 @server.route(f"/{BOT_TOKEN}", methods=['POST'])
 def telegram_webhook():
-    json_str = request.stream.read().decode("UTF-8")
+    json_str = request.stream.read().decode("utf-8")
     update = telebot.types.Update.de_json(json_str)
     bot.process_new_updates([update])
     return "OK", 200
 
-# --- Health check (optional) ---
+# --- Health check ---
 @server.route("/", methods=['GET'])
 def index():
     return "🤖 Connekti Bot is running!", 200
 
 if __name__ == "__main__":
-    # Important: tell Telegram where to send updates
+    port = int(os.environ.get("PORT", 10000))
+
+    # Reset webhook every time service restarts
     if BASE_URL:
         webhook_url = f"{BASE_URL}/{BOT_TOKEN}"
         bot.remove_webhook()
-        bot.set_webhook(url=webhook_url)
+        success = bot.set_webhook(url=webhook_url)
+        print(f"Webhook set to {webhook_url}: {success}")
 
-    port = int(os.environ.get("PORT", 10000))
+    # Run Flask app
     server.run(host="0.0.0.0", port=port)
